@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}
+     Order Date Selection
+{% endblock %}
+
+{% block extra_head %}
+{{ block.super }}
+    <script type="text/javascript" src="http://o.aolcdn.com/dojo/1.0/dojo/dojo.xd.js"
+        djConfig="parseOnLoad: true"></script>
+    <script type="text/javascript">
+        dojo.require("dojo.parser");
+        dojo.require("dijit.form.DateTextBox");
+    </script>
+
+{% endblock %}
+
+{% block header %}
+
+{% endblock %}
+
+{% block content %}
+
+<div class="order-table">
+
+	{% include "distribution/tabnav.html" %}
+
+	<h2> Enter Order Date </h2>
+
+    <form action="." method="POST" >
+        <table>
+                <th style="text-align: right; " >Week of:</th>
+                <td>{{ dsform.selected_date}}</td>
+				{% if dsform.selected_date.errors %}
+					<td style="color: red; " >
+						{{ dsform.selected_date.errors }}
+					</td>
+				{% endif %}
+            </tr>
+		</table>
+        <p>
+            <input type="submit" value="Submit" />
+        </p>
+    </form>
+</div>
+{% endblock %}
