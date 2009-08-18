@@ -1644,3 +1644,249 @@ def meat_update(request, prod_id, year, month, day):
         'avail_date': avail_date, 
         'producer': producer,
         'formset': formset})
+
+@login_required
+def process_selection(request):
+    process_date = current_week()
+    #initial_data = {"process_date": process_date}
+    processes = Process.objects.filter(process_date=process_date)
+    #psform = ProcessSelectionForm(data=request.POST or None, initial=initial_data)
+    psform = ProcessSelectionForm(data=request.POST or None)
+    if request.method == "POST":
+        if psform.is_valid():
+            data = psform.cleaned_data
+            process_type_id = data['process_type']
+            return HttpResponseRedirect('/%s/%s/'
+               % ('newprocess', process_type_id))
+    return render_to_response('distribution/process_selection.html', {
+        'process_date': process_date,
+        'header_form': psform,
+        'processes': processes,})
+
+@login_required
+def new_process(request, process_type_id):
+    weekstart = current_week()
+    weekend = weekstart + datetime.timedelta(days=5)
+    expired_date = weekstart + datetime.timedelta(days=5)
+    pt = get_object_or_404(ProcessType, id=process_type_id)
+
+    input_types = pt.input_type.sellable_children()
+    input_select_form = None
+    input_create_form = None
+    input_lot_qties = []
+    if pt.use_existing_input_lot:
+        input_lots = InventoryItem.objects.filter(
+            product__in=input_types, 
+            inventory_date__lte=weekend,
+            expiration_date__gte=expired_date,
+            remaining__gt=Decimal("0"))
+        initial_data = {"quantity": Decimal("0")}
+
+        for lot in input_lots:
+            input_lot_qties.append([lot.id, float(lot.avail_qty())])
+        if input_lots:
+            initial_data = {"quantity": input_lots[0].remaining,}
+        input_select_form = InputLotSelectionForm(input_lots, data=request.POST or None, prefix="inputselection", initial=initial_data)
+    else:
+        input_create_form = InputLotCreationForm(input_types, data=request.POST or None, prefix="inputcreation")
+
+    service_label = "Processing Service"
+    service_formset = None
+    #service_form = None
+    steps = pt.number_of_processing_steps
+    if steps > 1:
+        service_label = "Processing Services"
+        #ServiceFormSet = formset_factory(ProcessServiceForm, extra=steps)
+        #service_formset = ServiceFormSet(data=request.POST or None, prefix="service")
+    #else:
+        #service_form = ProcessServiceForm(data=request.POST or None, prefix="service")
+
+    ServiceFormSet = formset_factory(ProcessServiceForm, extra=steps)
+    service_formset = ServiceFormSet(data=request.POST or None, prefix="service")
+
+    output_types = pt.output_type.sellable_children()
+
+    output_label = "Output Lot"
+    #output_create_form = None
+    output_formset = None
+    outputs = pt.number_of_output_lots
+    if outputs > 1:
+        output_label = "Output Lots"
+        #OutputFormSet = formset_factory(OutputLotCreationFormsetForm, extra=outputs)
+        #output_formset = OutputFormSet(data=request.POST or None, prefix="output")
+        #for form in output_formset.forms:
+        #    form.fields['product'].choices = [(prod.id, prod.long_name) for prod in output_types]
+    #else:
+    #    output_create_form = OutputLotCreationForm(output_types, data=request.POST or None, prefix="output")
+
+    OutputFormSet = formset_factory(OutputLotCreationFormsetForm, extra=outputs)
+    output_formset = OutputFormSet(data=request.POST or None, prefix="output")
+    for form in output_formset.forms:
+        form.fields['product'].choices = [(prod.id, prod.long_name) for prod in output_types]
+
+    process = None
+
+    if request.method == "POST":
+        if input_create_form:
+            if input_create_form.is_valid():
+                data = input_create_form.cleaned_data
+                lot = input_create_form.save(commit=False)
+                qty = data["planned"]
+                process = Process(
+                    process_type = pt,
+                    process_date = weekstart)
+                process.save()
+                lot.inventory_date = weekstart
+                lot.remaining = qty
+                lot.save()
+                issue = InventoryTransaction(
+                    transaction_type = "Issue",
+                    process = process,
+                    inventory_item = lot,
+                    transaction_date = weekstart,
+                    quantity = qty)
+                issue.save()
+
+        elif input_select_form:
+            if input_select_form.is_valid():
+                data = input_select_form.cleaned_data
+                lot_id = data['lot']
+                lot = InventoryItem.objects.get(id=lot_id)
+                qty = data["quantity"]
+                process = Process(
+                    process_type = pt,
+                    process_date = weekstart)
+                process.save()
+                issue = InventoryTransaction(
+                    transaction_type = "Issue",
+                    process = process,
+                    inventory_item = lot,
+                    transaction_date = weekstart,
+                    quantity = qty)
+                issue.save()
+
+        if process:
+            if service_form:
+                if service_form.is_valid():
+                    tx = service_form.save(commit=False)
+                    tx.process = process
+                    tx.transaction_date = weekstart
+                    tx.save()
+            if service_formset:
+                if service_formset.is_valid(): # todo: shd be selective, or not?
+                    for service_form in service_formset.forms:
+                        tx = service_form.save(commit=False)
+                        tx.process = process
+                        tx.transaction_date = weekstart
+                        tx.save()
+            if output_create_form:
+                if output_create_form.is_valid():
+                    data = output_create_form.cleaned_data
+                    lot = output_create_form.save(commit=False)
+                    qty = data["planned"]
+                    lot.inventory_date = weekstart
+                    lot.save()
+                    tx = InventoryTransaction(
+                        transaction_type = "Production",
+                        process = process,
+                        inventory_item = lot,
+                        transaction_date = weekstart,
+                        quantity = qty)
+                    tx.save()
+            if output_formset:
+                for form in output_formset.forms:
+                    if form.is_valid():
+                        data = form.cleaned_data
+                        lot = form.save(commit=False)
+                        qty = data["planned"]
+                        lot.inventory_date = weekstart
+                        lot.save()
+                        tx = InventoryTransaction(
+                            transaction_type = "Production",
+                            process = process,
+                            inventory_item = lot,
+                            transaction_date = weekstart,
+                            quantity = qty)
+                        tx.save()
+                    #else:
+                    #    print "output form is invalid:", form
+
+
+            return HttpResponseRedirect('/%s/%s/'
+               % ('process', process.id))
+
+    return render_to_response('distribution/new_process.html', {
+        'input_lot_qties': input_lot_qties,
+        'input_select_form': input_select_form,
+        'input_create_form': input_create_form,
+        #'service_form': service_form,
+        'service_formset': service_formset,
+        'service_label': service_label,
+        #'output_create_form': output_create_form,
+        'output_formset': output_formset,
+        'output_label': output_label,
+        })  
+
+@login_required
+def edit_process(request, process_id):
+    process = get_object_or_404(Process, id=process_id)
+    inputs = process.inputs()
+
+    # todo: wip: how to edit a process?
+
+
+
+def process(request, process_id):
+    process = get_object_or_404(Process, id=process_id)
+    return render_to_response('distribution/process.html', {"process": process,})
+
+def delete_process_confirmation(request, process_id):
+    if request.method == "POST":
+        process = get_object_or_404(Process, id=process_id)
+        outputs = []
+        outputs_with_lot = []
+        for output in process.outputs():
+            lot = output.inventory_item
+            qty = output.quantity
+            if lot.planned == qty:
+                outputs_with_lot.append(output)
+            else:
+                outputs.append(output)
+        inputs = []
+        inputs_with_lot = []
+        for inp in process.inputs():
+            lot = inp.inventory_item
+            qty = inp.quantity
+            if lot.planned == qty:
+                inputs_with_lot.append(inp)
+            else:
+                inputs.append(inp)
+        return render_to_response('distribution/process_delete_confirmation.html', {
+            "process": process,
+            "outputs": outputs,
+            "inputs": inputs,
+            "outputs_with_lot": outputs_with_lot,
+            "inputs_with_lot": inputs_with_lot,
+            })
+
+def delete_process(request, process_id):
+    if request.method == "POST":
+        process = get_object_or_404(Process, id=process_id)
+        for output in process.outputs():
+            lot = output.inventory_item
+            qty = output.quantity
+            output.delete()
+            if lot.planned == qty:
+                lot.delete()
+        for inp in process.inputs():
+            lot = inp.inventory_item
+            qty = inp.quantity
+            inp.delete()
+            if lot.planned == qty:
+                lot.delete()
+        for service in process.services():
+            service.delete() 
+        process.delete()
+     
+        return HttpResponseRedirect(reverse("process_selection"))
+

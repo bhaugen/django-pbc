@@ -95,14 +95,24 @@ admin.site.register(Order, OrderAdmin)
 #admin.site.register(OrderItem, OrderItemAdmin)
 
 
-class PaymentAdmin(admin.ModelAdmin):
-    list_display = ('payment_date', 'paid_to', 'amount', 'reference')
+class ProcessTypeAdmin(admin.ModelAdmin):
+    list_display = ('name', 'input_type', 'use_existing_input_lot', 'number_of_processing_steps', 'output_type', 'number_of_output_lots', 'notes')
   
-admin.site.register(Payment, PaymentAdmin)
+admin.site.register(ProcessType, ProcessTypeAdmin)
+
+class ServiceTypeAdmin(admin.ModelAdmin):
+    list_display = ('name',)
+  
+admin.site.register(ServiceType, ServiceTypeAdmin)
+
+class ProcessAdmin(admin.ModelAdmin):
+    list_display = ('process_type', 'process_date')
+  
+admin.site.register(Process, ProcessAdmin)
 
 
 class InventoryTransactionAdmin(admin.ModelAdmin):
-    list_display = ('transaction_type', 'transaction_date', 'order_item', 'product', 'inventory_item', 'quantity', 'notes', 'payment')
+    list_display = ('transaction_type', 'transaction_date', 'order_item', 'process', 'product', 'inventory_item', 'quantity', 'notes', 'payment')
     #both ordering statements below caused mysterious error in admin:
     #no such column: orders_orderitem.order
     #ordering = ('order_item', 'inventory_item')
@@ -115,3 +125,8 @@ class InventoryTransactionAdmin(admin.ModelAdmin):
     date_hierarchy = 'transaction_date'
   
 admin.site.register(InventoryTransaction, InventoryTransactionAdmin)
+
+class PaymentAdmin(admin.ModelAdmin):
+    list_display = ('payment_date', 'paid_to', 'amount', 'reference')
+  
+admin.site.register(Payment, PaymentAdmin)

@@ -404,6 +404,21 @@ class Customer(models.Model):
     class Meta:
         ordering = ('short_name',)
 
+# based on dfs from threaded_comments
+def nested_objects(node, all_nodes):
+     to_return = [node,]
+     for subnode in all_nodes:
+         if subnode.parent and subnode.parent.id == node.id:
+             to_return.extend([nested_objects(subnode, all_nodes),])
+     return to_return
+
+def flattened_children(node, all_nodes, to_return):
+     to_return.append(node)
+     for subnode in all_nodes:
+         if subnode.parent and subnode.parent.id == node.id:
+             flattened_children(subnode, all_nodes, to_return)
+     return to_return
+
 
 class Product(models.Model):
     parent = models.ForeignKey('self', blank=True, null=True, related_name='children',
@@ -516,6 +531,14 @@ class Product(models.Model):
             answer = ', '.join(parents)
         return answer
 
+    def sellable_children(self):
+        kids = flattened_children(self, Product.objects.all(), [])
+        sellables = []
+        for kid in kids:
+            if kid.sellable:
+                sellables.append(kid)
+        return sellables
+
     class Meta:
         ordering = ('short_name',)
 
@@ -525,7 +548,7 @@ class ProductPlan(models.Model):
     product = models.ForeignKey(Product, limit_choices_to = {'sellable': True})
     from_date = models.DateField()
     to_date = models.DateField()
-    quantity = models.DecimalField(max_digits=8, decimal_places=2, default='0')
+    quantity = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal('0'))
     distributor = models.ForeignKey(Party, related_name="plan_distributors", blank=True, null=True)
     
     def __unicode__(self):
@@ -546,11 +569,11 @@ class InventoryItem(models.Model):
     product = models.ForeignKey(Product, limit_choices_to = {'sellable': True})
     inventory_date = models.DateField()
     expiration_date = models.DateField()
-    planned = models.DecimalField("Ready", max_digits=8, decimal_places=2, default='0')
-    remaining = models.DecimalField(max_digits=8, decimal_places=2, default='0',
+    planned = models.DecimalField("Ready", max_digits=8, decimal_places=2, default=Decimal('0'))
+    remaining = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal('0'),
         help_text='If you change Ready here, you most likely should also change Remaining. The Avail Update page changes Remaining automatically when you enter Ready, but this Admin form does not.')
-    received = models.DecimalField(max_digits=8, decimal_places=2, default='0')
-    onhand = models.DecimalField(max_digits=8, decimal_places=2, default='0',
+    received = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal('0'))
+    onhand = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal('0'),
         help_text='If you change Received here, you most likely should also change Onhand. The Avail Update page changes Onhand automatically when you enter Received, but this Admin form does not.')
     notes = models.CharField(max_length=64, blank=True)
     
@@ -623,23 +646,17 @@ class InventoryItem(models.Model):
         Same with remaining.
         """       
 
-        if self.onhand + self.received > 0:
-            if qty < 0:
-                self.onhand -= qty
-            else:
-                if self.onhand >= qty:
-                    self.onhand -= qty
-                else:
-                    self.onhand = 0
+        if self.onhand + self.received > Decimal('0'):
+            # to deal with Django bug
+            onhand = Decimal(self.onhand)
+            onhand -= qty
+            self.onhand = max([Decimal("0"), onhand])
             self.save()
-        if self.planned + self.remaining > 0:
-            if qty < 0:
-                self.remaining -= qty
-            else:
-                if self.remaining >= qty:
-                    self.remaining -= qty
-                else:
-                    self.remaining = 0
+        else:
+            # to deal with Django bug
+            remaining = Decimal(self.remaining)
+            remaining -= qty
+            self.remaining = max([Decimal("0"), remaining])
             self.save()
                 
     def save(self, force_insert=False, force_update=False):
@@ -651,7 +668,7 @@ class InventoryItem(models.Model):
 class Payment(models.Model):
     paid_to = models.ForeignKey(Party) 
     payment_date = models.DateField()
-    amount = models.DecimalField(max_digits=8, decimal_places=2, default='0')
+    amount = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal('0'))
     reference = models.CharField(max_length=64, blank=True)
 
     def __unicode__(self):
@@ -669,7 +686,7 @@ class Order(models.Model):
     customer = models.ForeignKey(Customer) 
     order_date = models.DateField()
     distributor = models.ForeignKey(Party, blank=True, null=True, related_name="orders")
-    transportation_fee = models.DecimalField(max_digits=8, decimal_places=2, default='0')
+    transportation_fee = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal('0'))
     paid = models.BooleanField(default=False, verbose_name="Order paid")
     transportation_payment = models.ForeignKey(Payment, blank=True, null=True)
 
@@ -726,7 +743,7 @@ class OrderItem(models.Model):
     product = models.ForeignKey(Product)
     quantity = models.DecimalField(max_digits=8, decimal_places=2)
     unit_price = models.DecimalField(max_digits=8, decimal_places=2)
-    fee = models.DecimalField(max_digits=3, decimal_places=2, default='0',
+    fee = models.DecimalField(max_digits=3, decimal_places=2, default=Decimal('0'),
         help_text='Fee is a decimal fraction, not a percentage - for example, .05 instead of 5%')
     notes = models.CharField(max_length=64, blank=True)
 
@@ -827,7 +844,7 @@ class Processing(models.Model):
     inventory_item = models.OneToOneField(InventoryItem, related_name='processing')
     processor = models.ForeignKey(Party)
     process_date = models.DateField()
-    cost = models.DecimalField(max_digits=8, decimal_places=2, default='0')
+    cost = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal('0'))
     payment = models.ForeignKey(Payment, blank=True, null=True)
     
     class Meta:
@@ -851,15 +868,109 @@ class Processing(models.Model):
             self.process_date = self.inventory_item.inventory_date
         super(Processing, self).save(force_insert, force_update)
 
+class ServiceType(models.Model):
+    name = models.CharField(max_length=64)
+
+    def __unicode__(self):
+        return self.name
+
+
+class ProcessType(models.Model):
+    name = models.CharField(max_length=64)
+    input_type = models.ForeignKey(Product, related_name='input_types')
+    use_existing_input_lot = models.BooleanField(default=True)
+    number_of_processing_steps = models.IntegerField(default=1)
+    output_type = models.ForeignKey(Product, related_name='output_types')
+    number_of_output_lots = models.IntegerField(default=1)
+    notes = models.TextField(blank=True)
+
+    def __unicode__(self):
+        return self.name
+
+class Process(models.Model):
+    process_type = models.ForeignKey(ProcessType)
+    process_date = models.DateField()
+    notes = models.TextField(blank=True)
+
+    def __unicode__(self):
+        return " ".join([
+            self.process_type.name,
+            self.input_lot_id()
+            #self.process_date.strftime('%Y-%m-%d')
+            ])
+
+
+    def inputs(self):
+        return self.inventory_transactions.filter(transaction_type="Issue")
+
+    def outputs(self):
+        return self.inventory_transactions.filter(transaction_type="Production")
+
+    def services(self):
+        return self.service_transactions.all()
+
+    def input_lot_id(self):
+        inputs = self.inventory_transactions.filter(transaction_type="Issue")
+        try:
+            return inputs[0].inventory_item.lot_id()
+        except:
+            return ""
+
+    def output_lot_ids(self):
+        answer = ""
+        outputs = self.inventory_transactions.filter(transaction_type="Production")
+        lot_ids = []
+        for output in outputs:
+            lot_ids.append(output.inventory_item.lot_id())
+        answer = ", ".join(lot_ids)
+        return answer
+
+    def next_processes(self):
+        processes = []
+        for output in self.outputs():
+            lot = output.inventory_item
+            for issue in lot.inventorytransaction_set.filter(transaction_type="Issue"):
+                if issue.process:
+                    processes.append(issue.process)
+        return processes
+
+    def previous_processes(self):
+        processes = []
+        for inp in self.inputs():
+            lot = inp.inventory_item
+            for tx in lot.inventorytransaction_set.filter(transaction_type="Production"):
+                if tx.process:
+                    processes.append(tx.process)
+        return processes 
+
+    def previous_process(self):       
+        # for PBC now, processes will have one or None previous_processes
+        processes = self.previous_processes()
+        if processes:
+            return processes[0]
+        else:
+            return None
+
+    def is_deletable(self):
+        if self.next_processes():
+            return False
+        else:
+            return True 
+
 
 TX_CHOICES = (
-    ('Delivery', 'Delivery'),
-    ('Damage', 'Damage'),
-    ('Reject', 'Reject'),
+    ('Receipt', 'Receipt'),         # inventory was received from outside the system
+    ('Delivery', 'Delivery'),       # inventory was delivered to a customer
+    ('Transfer', 'Transfer'),       # combination delivery and receipt inside the system
+    ('Issue', 'Issue'),             # a process consumed inventory
+    ('Production', 'Production'),   # a process created inventory
+    ('Damage', 'Damage'),           # inventory was damaged and must be paid for
+    ('Reject', 'Reject'),           # inventory was rejected by a customer and does not need to be paid for
 )
 
 class InventoryTransaction(models.Model):
     inventory_item = models.ForeignKey(InventoryItem)
+    process = models.ForeignKey(Process, blank=True, null=True, related_name='inventory_transactions')
     transaction_type = models.CharField(max_length=10, choices=TX_CHOICES, default='Delivery')
     transaction_date = models.DateField()
     order_item = models.ForeignKey(OrderItem, blank=True, null=True)
@@ -879,16 +990,22 @@ class InventoryTransaction(models.Model):
             'Qty:', str(self.quantity)])
         
     def save(self, force_insert=False, force_update=False):
-        initial_qty = Decimal(0)
+        initial_qty = Decimal("0")
         if self.pk:
             prev_state = InventoryTransaction.objects.get(pk=self.pk)
             initial_qty = prev_state.quantity
-        qty_delta = self.quantity - initial_qty
-        self.inventory_item.update_from_transaction(qty_delta)
         super(InventoryTransaction, self).save(force_insert, force_update)
+        qty_delta = self.quantity - initial_qty
+        if self.transaction_type=="Receipt" or self.transaction_type=="Production":
+            self.inventory_item.update_from_transaction(-qty_delta)
+        else:
+            self.inventory_item.update_from_transaction(qty_delta)
         
     def delete(self):
-        self.inventory_item.update_from_transaction(-self.quantity)
+        if self.transaction_type=="Receipt" or self.transaction_type=="Production":
+            self.inventory_item.update_from_transaction(self.quantity)
+        else:
+            self.inventory_item.update_from_transaction(-self.quantity)
         super(InventoryTransaction, self).delete()
         
     def order_customer(self):
@@ -931,4 +1048,20 @@ class InventoryTransaction(models.Model):
 
     class Meta:
         ordering = ('-transaction_date',)
+
+
+class ServiceTransaction(models.Model):
+    service_type = models.ForeignKey(ServiceType)
+    process = models.ForeignKey(Process, related_name='service_transactions')
+    processor = models.ForeignKey(Party)
+    cost = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal('0'))
+    transaction_date = models.DateField()
+    notes = models.CharField(max_length=64, blank=True)
+    payment = models.ForeignKey(Payment, blank=True, null=True)
+
+    def __unicode__(self):
+        return " ".join([
+            self.service_type.name,
+            self.processor.long_name,
+            ])
 

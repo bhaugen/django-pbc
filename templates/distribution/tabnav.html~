@@ -23,13 +23,13 @@ ul#tabnav li
 display: inline;
 }
 
-div.index li.index, div.inventory-update li.inventory-update, div.order-update li.order-update, div.order-table li.order-table, div.delivery-update li.delivery-update, div.deliveries li.deliveries, div.producer-payments li.producer-payments, div.payment-update li.payment-update, div.invoices li.invoices, div.help li.help, div.plan-update li.plan-update, div.statements li.statements, div.process li.process
+div.index li.index, div.inventory-update li.inventory-update, div.order-update li.order-update, div.order-table li.order-table, div.delivery-update li.delivery-update, div.deliveries li.deliveries, div.producer-payments li.producer-payments, div.payment-update li.payment-update, div.invoices li.invoices, div.help li.help, div.plan-update li.plan-update, div.statements li.statements
 { /* settings for selected tab */
 	border-bottom: 1px solid #fff; /* set border color to page background color */
 	background-color: #fff !important; /* set background color to match above border color */
 }
 
-div.index li.index a, div.inventory-update li.inventory-update a, div.order-update li.order-update a, div.order-table li.order-table a, div.delivery-update li.delivery-update a, div.deliveries li.deliveries a, div.producer-payments li.producer-payments a, div.payment-update li.payment-update a, div.invoices li.invoices a, div.help li.help a, div.plan-update li.plan-update a, div.statements li.statements a, div.process li.process a
+div.index li.index a, div.inventory-update li.inventory-update a, div.order-update li.order-update a, div.order-table li.order-table a, div.delivery-update li.delivery-update a, div.deliveries li.deliveries a, div.producer-payments li.producer-payments a, div.payment-update li.payment-update a, div.invoices li.invoices a, div.help li.help a, div.plan-update li.plan-update a, div.statements li.statements a
 { /* settings for selected tab link */
 	background-color: #fff  !important; /* set selected tab background color as desired */
 	color: #000; /* set selected tab link color as desired */
@@ -61,7 +61,6 @@ ul#tabnav a:hover
 	<ul id="tabnav" class="do-not-print" >
 		<li class="index" ><a title="Home page" href="/dashboard">Home</a> </li>
 		<li class="inventory-update" ><a title="Update inventory for one producer at a time" href="/inventoryselection">Avail</a></li>
-		<li class="process" ><a title="Create or update processes" href="/processselection">Process</a></li>
 		<li class="order-update" ><a title="Update orders for one customer at a time" href="/orderselection">Order</a> </li>
 		<li class="order-table" ><a title="Show all orders for all customers for this week" href="/ordertableselection">Order Table</a> </li>
 		<!--<li class="delivery-update" ><a title="Update lots for all order items for this week" href="/deliveryselection">Update Lots</a> </li>-->

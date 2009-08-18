@@ -326,9 +326,7 @@ def create_plan_forms(producer, data=None):
     return form_list 
 
 class InventoryItemForm(forms.ModelForm):
-    #prodname = forms.CharField(widget=forms.TextInput(attrs={'readonly':'true', 'class': 'read-only-input'}))
     prodname = forms.CharField(widget=forms.HiddenInput)
-    #description = forms.CharField(widget=forms.TextInput(attrs={'readonly':'true', 'class': 'read-only-input', 'size': '32'}))
     inventory_date = forms.DateField(widget=forms.TextInput(attrs={'size': '10'}))
     planned = forms.DecimalField(widget=forms.TextInput(attrs={'class': 'quantity-field', 'size': '10'}))
     received = forms.DecimalField(widget=forms.TextInput(attrs={'class': 'quantity-field', 'size': '10'}))
@@ -605,3 +603,80 @@ class EmailForm(forms.Form):
     email_address = forms.EmailField()
     subject = forms.CharField()
     message = forms.CharField(widget = forms.Textarea)
+
+
+class ProcessSelectionForm(forms.Form):
+    #process_date = forms.DateField(
+    #    widget=forms.TextInput(attrs={"dojoType": "dijit.form.DateTextBox", "constraints": "{datePattern:'yyyy-MM-dd'}"}))
+    process_type = forms.ChoiceField()
+
+    def __init__(self, *args, **kwargs):
+        super(ProcessSelectionForm, self).__init__(*args, **kwargs)
+        self.fields['process_type'].choices = [('', '----------')] + [(pt.id, pt.name) for pt in ProcessType.objects.all()]
+
+
+class InputLotSelectionForm(forms.Form):
+    lot = forms.ChoiceField()
+    quantity = forms.DecimalField(widget=forms.TextInput(attrs={'class': 'quantity-field', 'size': '10'}))
+
+    def __init__(self, input_lots, *args, **kwargs):
+        super(InputLotSelectionForm, self).__init__(*args, **kwargs)
+        self.fields['lot'].choices = [(lot.id, lot.lot_id()) for lot in input_lots]
+
+
+class InputLotCreationForm(forms.ModelForm):
+    planned = forms.DecimalField(widget=forms.TextInput(attrs={'class': 'quantity-field', 'size': '10'}))
+
+    def __init__(self, input_types, *args, **kwargs):
+        super(InputLotCreationForm, self).__init__(*args, **kwargs)
+        self.fields['product'].choices = [(prod.id, prod.long_name) for prod in input_types]
+        # todo: shd be producers for input_types
+        self.fields['producer'].choices = [('', '----------')] + [(prod.id, prod.short_name) for prod in Party.subclass_objects.planned_producers()]
+
+    class Meta:
+        model = InventoryItem
+        exclude = ('custodian', 'inventory_date', 'expiration_date', 'remaining', 'received', 'onhand', 'notes')
+
+class InputLotUpdateForm(forms.Form):
+    lot_id = forms.ChoiceField()
+    quantity = forms.DecimalField(widget=forms.TextInput(attrs={'class': 'quantity-field', 'size': '10'}))
+
+
+class OutputLotCreationForm(forms.ModelForm):
+    planned = forms.DecimalField(widget=forms.TextInput(attrs={'class': 'quantity-field', 'size': '10'}))
+
+    def __init__(self, output_types, *args, **kwargs):
+        super(OutputLotCreationForm, self).__init__(*args, **kwargs)
+        self.fields['product'].choices = [(prod.id, prod.long_name) for prod in output_types]
+        # todo: shd be producers for output_types
+        self.fields['producer'].choices = [('', '----------')] + [(prod.id, prod.short_name) for prod in Party.subclass_objects.planned_producers()]
+
+    class Meta:
+        model = InventoryItem
+        exclude = ('inventory_date', 'expiration_date', 'remaining', 'received', 'onhand', 'notes')
+
+class OutputLotCreationFormsetForm(forms.ModelForm):
+    planned = forms.DecimalField(widget=forms.TextInput(attrs={'class': 'quantity-field', 'size': '10'}))
+
+    def __init__(self, *args, **kwargs):
+        super(OutputLotCreationFormsetForm, self).__init__(*args, **kwargs)
+        # todo: shd be producers for output_types
+        self.fields['producer'].choices = [('', '----------')] + [(prod.id, prod.short_name) for prod in Party.subclass_objects.planned_producers()]
+
+    class Meta:
+        model = InventoryItem
+        exclude = ('inventory_date', 'expiration_date', 'remaining', 'received', 'onhand', 'notes')
+
+class OutputLotUpdateForm(forms.Form):
+    lot_id = forms.ChoiceField()
+    quantity = forms.DecimalField(widget=forms.TextInput(attrs={'class': 'quantity-field', 'size': '10'}))
+
+
+class ProcessServiceForm(forms.ModelForm):
+    cost = forms.DecimalField(widget=forms.TextInput(attrs={'class': 'quantity-field', 'size': '10'}))
+    
+    class Meta:
+        model = ServiceTransaction
+        exclude = ('process', 'transaction_date', 'payment', 'notes')
+
+
