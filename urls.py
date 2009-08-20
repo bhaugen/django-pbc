@@ -55,8 +55,10 @@ urlpatterns = patterns('',
     url(r'^sendordernotices/$', send_order_notices, name="send_order_notices"),
     url(r'^resetweek/$', reset_week, name='reset_week'),
     (r'^notices/', include('notification.urls')),
-    #(r'^help/$', help),
-    #(r'^backups/(?P<path>.*)$', 'django.views.static.serve', {'document_root': '/home/pbc/webapps/django/pbc/backups', 'show_indexes': True}),
+    url(r'^sendemail/$', send_email, name="send_email"),
+    (r'^sendgaemail/$', send_ga_email),
+    url(r'^email_sent/$', direct_to_template, {"template": "orders/email_sent.html"}, name="email_sent"),
+    url(r'^ga_email_sent/$', direct_to_template, {"template": "orders/ga_email_sent.html"}, name="ga_email_sent"),
 )
                            
 

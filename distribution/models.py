@@ -635,27 +635,24 @@ class InventoryItem(models.Model):
         buyer_string = ", ".join(buyers)
         return buyer_string
             
-    def update_from_transaction(self, qty):
-        """ Update onhand from transaction qty
+    def update_from_transaction(self, qty): 
+        """ update remaining or onhand
 
-        Update only if onhand + received > 0 or planned + remaining > 0.
-        (In other words, if onhand = 0, update only if received > 0.)
-        If qty > 0, decrease onhand.
-        If qty < 0, increase onhand. (This means transaction qty was changed.)
-        If onhand would go negative, set it to 0.
-        Same with remaining.
-        """       
+        Onhand trumps remaining.
+        Qty could be positive or negative.
+        """
 
         if self.onhand + self.received > Decimal('0'):
-            # to deal with Django bug
+            # to deal with Django bug, fixed in 1.1
             onhand = Decimal(self.onhand)
-            onhand -= qty
+            onhand += qty
             self.onhand = max([Decimal("0"), onhand])
             self.save()
         else:
-            # to deal with Django bug
+            # to deal with Django bug, fixed in 1.1
             remaining = Decimal(self.remaining)
-            remaining -= qty
+            print self, "remaining:", remaining, "qty:", qty
+            remaining += qty
             self.remaining = max([Decimal("0"), remaining])
             self.save()
                 
@@ -997,15 +994,15 @@ class InventoryTransaction(models.Model):
         super(InventoryTransaction, self).save(force_insert, force_update)
         qty_delta = self.quantity - initial_qty
         if self.transaction_type=="Receipt" or self.transaction_type=="Production":
-            self.inventory_item.update_from_transaction(-qty_delta)
-        else:
             self.inventory_item.update_from_transaction(qty_delta)
+        else:
+            self.inventory_item.update_from_transaction(-qty_delta)
         
     def delete(self):
         if self.transaction_type=="Receipt" or self.transaction_type=="Production":
-            self.inventory_item.update_from_transaction(self.quantity)
-        else:
             self.inventory_item.update_from_transaction(-self.quantity)
+        else:
+            self.inventory_item.update_from_transaction(self.quantity)
         super(InventoryTransaction, self).delete()
         
     def order_customer(self):

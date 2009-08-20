@@ -1692,33 +1692,19 @@ def new_process(request, process_type_id):
 
     service_label = "Processing Service"
     service_formset = None
-    #service_form = None
     steps = pt.number_of_processing_steps
     if steps > 1:
         service_label = "Processing Services"
-        #ServiceFormSet = formset_factory(ProcessServiceForm, extra=steps)
-        #service_formset = ServiceFormSet(data=request.POST or None, prefix="service")
-    #else:
-        #service_form = ProcessServiceForm(data=request.POST or None, prefix="service")
-
     ServiceFormSet = formset_factory(ProcessServiceForm, extra=steps)
     service_formset = ServiceFormSet(data=request.POST or None, prefix="service")
 
     output_types = pt.output_type.sellable_children()
 
     output_label = "Output Lot"
-    #output_create_form = None
     output_formset = None
     outputs = pt.number_of_output_lots
     if outputs > 1:
         output_label = "Output Lots"
-        #OutputFormSet = formset_factory(OutputLotCreationFormsetForm, extra=outputs)
-        #output_formset = OutputFormSet(data=request.POST or None, prefix="output")
-        #for form in output_formset.forms:
-        #    form.fields['product'].choices = [(prod.id, prod.long_name) for prod in output_types]
-    #else:
-    #    output_create_form = OutputLotCreationForm(output_types, data=request.POST or None, prefix="output")
-
     OutputFormSet = formset_factory(OutputLotCreationFormsetForm, extra=outputs)
     output_formset = OutputFormSet(data=request.POST or None, prefix="output")
     for form in output_formset.forms:
@@ -1766,12 +1752,6 @@ def new_process(request, process_type_id):
                 issue.save()
 
         if process:
-            if service_form:
-                if service_form.is_valid():
-                    tx = service_form.save(commit=False)
-                    tx.process = process
-                    tx.transaction_date = weekstart
-                    tx.save()
             if service_formset:
                 if service_formset.is_valid(): # todo: shd be selective, or not?
                     for service_form in service_formset.forms:
@@ -1779,20 +1759,6 @@ def new_process(request, process_type_id):
                         tx.process = process
                         tx.transaction_date = weekstart
                         tx.save()
-            if output_create_form:
-                if output_create_form.is_valid():
-                    data = output_create_form.cleaned_data
-                    lot = output_create_form.save(commit=False)
-                    qty = data["planned"]
-                    lot.inventory_date = weekstart
-                    lot.save()
-                    tx = InventoryTransaction(
-                        transaction_type = "Production",
-                        process = process,
-                        inventory_item = lot,
-                        transaction_date = weekstart,
-                        quantity = qty)
-                    tx.save()
             if output_formset:
                 for form in output_formset.forms:
                     if form.is_valid():
@@ -1808,9 +1774,6 @@ def new_process(request, process_type_id):
                             transaction_date = weekstart,
                             quantity = qty)
                         tx.save()
-                    #else:
-                    #    print "output form is invalid:", form
-
 
             return HttpResponseRedirect('/%s/%s/'
                % ('process', process.id))
@@ -1819,10 +1782,8 @@ def new_process(request, process_type_id):
         'input_lot_qties': input_lot_qties,
         'input_select_form': input_select_form,
         'input_create_form': input_create_form,
-        #'service_form': service_form,
         'service_formset': service_formset,
         'service_label': service_label,
-        #'output_create_form': output_create_form,
         'output_formset': output_formset,
         'output_label': output_label,
         })  

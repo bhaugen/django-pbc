@@ -232,15 +232,7 @@
 				<th>Processor</th>
 				<th>Cost</th>
 			</tr>
-{% comment %}
-			{% if service_form %}
-			<tr>
-				<td>{{ service_form.service_type }}</td>
-				<td>{{ service_form.processor }}</td>
-				<td>{{ service_form.cost }}</td>
-			</tr>
-			{% endif %}
-{% endcomment %}
+
 			{% if service_formset %}
 				{{ service_formset.management_form }}
 				{% for service_form in service_formset.forms %}
@@ -261,16 +253,7 @@
 				<th>Quantity</th>
 				<th>Custodian</th>
 			</tr>
-{% comment %}
-			{% if output_create_form %}
-				<tr>
-					<td>{{ output_create_form.producer }}</td>
-					<td>{{ output_create_form.product }}</td>
-					<td>{{ output_create_form.planned }}</td>
-					<td>{{ output_create_form.custodian }}</td>
-				</tr>
-			{% endif %}
-{% endcomment %}
+
 			{% if output_formset %}
 				{{ output_formset.management_form }}
 				{% for output_create_form in output_formset.forms %}
