@@ -57,8 +57,8 @@ urlpatterns = patterns('',
     (r'^notices/', include('notification.urls')),
     url(r'^sendemail/$', send_email, name="send_email"),
     (r'^sendgaemail/$', send_ga_email),
-    url(r'^email_sent/$', direct_to_template, {"template": "orders/email_sent.html"}, name="email_sent"),
-    url(r'^ga_email_sent/$', direct_to_template, {"template": "orders/ga_email_sent.html"}, name="ga_email_sent"),
+    url(r'^email_sent/$', direct_to_template, {"template": "distribution/email_sent.html"}, name="email_sent"),
+    url(r'^ga_email_sent/$', direct_to_template, {"template": "distribution/ga_email_sent.html"}, name="ga_email_sent"),
 )
                            
 
