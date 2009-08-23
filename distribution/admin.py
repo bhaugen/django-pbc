@@ -130,3 +130,10 @@ class PaymentAdmin(admin.ModelAdmin):
     list_display = ('payment_date', 'paid_to', 'amount', 'reference')
   
 admin.site.register(Payment, PaymentAdmin)
+
+
+class ServiceTransactionAdmin(admin.ModelAdmin):
+    list_display = ('service_type', 'process', 'processor', 'transaction_date', 'cost', 'payment')
+  
+admin.site.register(ServiceTransaction, ServiceTransactionAdmin)
+
