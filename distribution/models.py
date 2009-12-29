@@ -884,6 +884,14 @@ class ProcessType(models.Model):
     def __unicode__(self):
         return self.name
 
+
+def previous_process_collector(process, collector):
+    for proc in process.previous_processes():
+        collector.append(proc)
+        previous_process_collector(proc, collector)
+    return collector
+
+
 class Process(models.Model):
     process_type = models.ForeignKey(ProcessType)
     process_date = models.DateField()
@@ -931,6 +939,10 @@ class Process(models.Model):
                     processes.append(issue.process)
         return processes
 
+    def previous_processes_recursive(self):
+        processes = previous_process_collector(self, []) 
+        return processes 
+
     def previous_processes(self):
         processes = []
         for inp in self.inputs():
@@ -949,11 +961,26 @@ class Process(models.Model):
             return None
 
     def is_deletable(self):
-        if self.next_processes():
-            return False
-        else:
-            return True 
+        answer = True
+        for output in self.outputs():
+            lot = output.inventory_item
+            other_types = ["Issue", "Delivery", "Damage", "Reject", "Receipt", "Transfer"]
+            if lot.inventorytransaction_set.filter(transaction_type__in=other_types).count() > 0:
+                answer = False
+        return answer
 
+def connected_functions(node, all_nodes, to_return):
+    to_return.append(node)
+    for subnode in all_nodes:
+        for out in subnode.outputs():
+            for consumer in out.resource_type.cluster_consumers(subnode.cluster):
+                if not consumer.function in to_return:
+                    connected_functions(consumer.function, all_nodes, to_return)
+        for inp in subnode.inputs():
+            for producer in inp.resource_type.cluster_producers(subnode.cluster):
+                if not producer.function in to_return:
+                    connected_functions(producer.function, all_nodes, to_return)
+    return to_return
 
 TX_CHOICES = (
     ('Receipt', 'Receipt'),         # inventory was received from outside the system

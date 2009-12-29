@@ -43,7 +43,7 @@
         {% endfor %}
     </table>
 
-	<h3>Processing Service:</h3>
+	<h3>Processing Service{{process.services.count|pluralize}}:</h3>
     <table class="ga-event-table" >
         <tr>
              <th>Type</th>
@@ -58,7 +58,7 @@
         {% endfor %}
     </table>
 
-	<h3>Output Lot:</h3>
+	<h3>Output Lot{{process.outputs.count|pluralize}}:</h3>
     <table class="ga-event-table" >
         <tr>
              <th>Lot id</th>
